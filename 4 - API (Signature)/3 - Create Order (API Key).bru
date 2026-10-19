@@ -1,0 +1,66 @@
+meta {
+  name: 3 - Create Order (API Key)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/reseller/orders
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "sku": "{{sku}}",
+    "inputs": {
+      "user_id": "77287847",
+      "zone_id": "2145"
+    },
+    "idempotency_key": "{{$randomUUID}}"
+  }
+}
+
+script:pre-request {
+  const CryptoJS = require("crypto-js");
+  const apiKey = bru.getEnvVar("api_key");
+  const apiSecret = bru.getEnvVar("api_secret");
+  if (!apiKey || !apiSecret) {
+    throw new Error("api_key / api_secret kosong: jalankan \"3 - API Keys / 1 - Create API Key\" dulu");
+  }
+  const method = req.getMethod().toUpperCase();
+  const requestUri = bru.interpolate(req.getUrl()).replace(/^https?:\/\/[^\/]+/, "");
+  const rawBody = req.getBody();
+  const body = rawBody ? (typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody)) : "";
+  const ts = String(Math.floor(Date.now() / 1000));
+  const bodyHash = CryptoJS.SHA256(body).toString(CryptoJS.enc.Hex);
+  const toSign = method + ":" + requestUri + ":" + bodyHash + ":" + ts;
+  req.setHeader("X-Api-Key", apiKey);
+  req.setHeader("X-Timestamp", ts);
+  req.setHeader("X-Signature", CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA512(toSign, apiSecret)));
+}
+
+script:post-response {
+  const body = res.getBody();
+  test("order created", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(body.data.ref_id).to.be.a("string");
+  });
+  if (res.getStatus() === 200) {
+    bru.setEnvVar("ref_id", body.data.ref_id);
+  }
+}
+
+docs {
+  Membuat order lewat API key (tanpa login). Sama seperti "5 - Orders / 1 - Create Order";
+  perbedaannya hanya cara autentikasi: header X-Api-Key, X-Timestamp, X-Signature dibuat otomatis
+  oleh script di atas (HMAC-SHA512 atas METHOD:ALAMAT_PENUH:sha256(body):TIMESTAMP).
+
+  PENTING: body yang ditandatangani harus byte-per-byte sama dengan yang dikirim. Script ini
+  menandatangani JSON.stringify(body) dan belum diuji di aplikasi Bruno; kalau signature ditolak
+  (401 INVALID_SIGNATURE) padahal api_secret benar, kemungkinan besar Bruno mengirim body dengan
+  format spasi berbeda. Hitung manual atau panggil dari kode sistemmu sendiri
+  (lihat contoh di CLAUDE.md / dokumentasi signature).
+
+  Kirim ulang dengan idempotency_key yang SAMA -> 409 DUPLICATE_REQUEST (data.ref_id, data.status).
+}

@@ -1,0 +1,33 @@
+meta {
+  name: 3 - List Orders
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/reseller/orders?page=1&limit=10
+  body: none
+  auth: bearer
+}
+
+params:query {
+  page: 1
+  limit: 10
+  ~status: 
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+script:post-response {
+  test("list ok", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data).to.be.an("array");
+  });
+}
+
+docs {
+  Riwayat transaksi milikmu, terbaru dulu. Filter status (opsional): PENDING | SUCCESS | FAILED.
+  Hanya menampilkan order yang kamu buat sebagai reseller.
+}

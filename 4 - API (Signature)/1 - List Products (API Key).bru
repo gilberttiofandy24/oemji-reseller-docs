@@ -1,0 +1,63 @@
+meta {
+  name: 1 - List Products (API Key)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/reseller/products?page=1&limit=10
+  body: none
+  auth: none
+}
+
+params:query {
+  page: 1
+  limit: 10
+}
+
+script:pre-request {
+  const CryptoJS = require("crypto-js");
+  const apiKey = bru.getEnvVar("api_key");
+  const apiSecret = bru.getEnvVar("api_secret");
+  if (!apiKey || !apiSecret) {
+    throw new Error("api_key / api_secret kosong: jalankan \"3 - API Keys / 1 - Create API Key\" dulu");
+  }
+  const method = req.getMethod().toUpperCase();
+  const fullUrl = bru.interpolate(req.getUrl());
+  const requestUri = fullUrl.replace(/^https?:\/\/[^\/]+/, "");
+  const rawBody = req.getBody();
+  const body = rawBody ? (typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody)) : "";
+  const ts = String(Math.floor(Date.now() / 1000));
+  const bodyHash = CryptoJS.SHA256(body).toString(CryptoJS.enc.Hex);
+  const toSign = method + ":" + requestUri + ":" + bodyHash + ":" + ts;
+  const signature = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA512(toSign, apiSecret));
+  req.setHeader("X-Api-Key", apiKey);
+  req.setHeader("X-Timestamp", ts);
+  req.setHeader("X-Signature", signature);
+}
+
+script:post-response {
+  test("list ok", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data).to.be.an("array");
+  });
+}
+
+docs {
+  Memanggil katalog produk lewat API key (tanpa login/JWT).
+  Tiga header dibuat otomatis oleh script di atas:
+    X-Api-Key    = {{api_key}}
+    X-Timestamp  = waktu sekarang (detik)
+    X-Signature  = base64( HMAC-SHA512( {{api_secret}},
+                     METHOD + ":" + ALAMAT_PENUH + ":" + sha256hex(body) + ":" + TIMESTAMP ) )
+
+  ALAMAT_PENUH harus lengkap dengan prefix dan query persis seperti yang dipanggil:
+    /api/v2/reseller/products?page=1&limit=10
+  (bukan /reseller/products). Kalau alamat atau query berbeda dari yang ditandatangani -> 401
+  INVALID_SIGNATURE.
+
+  Isi {{api_key}} dan {{api_secret}} lewat "3 - API Keys / 1 - Create API Key".
+  Script ini menimpa X-Timestamp/X-Signature yang dibuat collection-level (signature aplikasi).
+  Catatan: script signing ini belum dijalankan di aplikasi Bruno; algoritmanya sudah teruji di
+  backend. Kalau Bruno menolak bru.interpolate / req.getBody, hitung signature manual.
+}

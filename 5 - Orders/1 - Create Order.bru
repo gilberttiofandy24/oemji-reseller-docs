@@ -1,0 +1,64 @@
+meta {
+  name: 1 - Create Order
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/reseller/orders
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "sku": "{{sku}}",
+    "inputs": {
+      "user_id": "77287847",
+      "zone_id": "2145"
+    },
+    "idempotency_key": "{{$randomUUID}}"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  test("order created", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(body.data.ref_id).to.be.a("string");
+  });
+  if (res.getStatus() === 200) {
+    bru.setEnvVar("ref_id", body.data.ref_id);
+  }
+}
+
+docs {
+  Membuat order lewat dashboard (login JWT). Satu panggilan = satu produk, satu kali.
+
+  Body:
+    sku              dari "1 - Products / 1 - List Products" (isi variabel {{sku}})
+    inputs           sesuai input_fields produk itu (mis. user_id, zone_id)
+    idempotency_key  WAJIB, 1-64 karakter (huruf, angka, - dan _). Satu key = satu pembelian.
+
+  Request ini memakai {{$randomUUID}} sehingga SETIAP kali dijalankan adalah pembelian baru.
+  Untuk menguji perlindungan duplikat, ganti dengan key tetap lalu kirim dua kali.
+
+  Hasil: status PENDING / SUCCESS / FAILED. Saldo dipotong saat order dibuat, dan otomatis
+  dikembalikan (mutation REFUND) kalau order gagal. PENDING = menunggu supplier; cek lagi dengan
+  "2 - Get Order".
+
+  Error:
+    400 INSUFFICIENT_BALANCE      saldo kurang (tidak ada yang terpotong)
+    400 PRICE_NOT_SET             harga reseller untuk produk ini belum tersedia
+    400 INVALID_IDEMPOTENCY_KEY   format key salah
+    404 SKU_NOT_FOUND
+    409 DUPLICATE_REQUEST         key ini sudah dipakai; data.ref_id dan data.status = order yang ada
+    403 RESELLER_PENDING_APPROVAL / RESELLER_SUSPENDED
+
+  409 BUKAN kegagalan sistem: artinya order dengan key itu sudah ada. Pakai data.ref_id untuk
+  mengecek hasilnya. Untuk membeli lagi (termasuk setelah FAILED), pakai key BARU.
+}

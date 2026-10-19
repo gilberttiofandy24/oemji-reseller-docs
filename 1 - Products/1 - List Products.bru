@@ -1,0 +1,37 @@
+meta {
+  name: 1 - List Products
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/reseller/products?page=1&limit=10
+  body: none
+  auth: bearer
+}
+
+params:query {
+  page: 1
+  limit: 10
+  ~name: 
+  ~category: 
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+script:post-response {
+  test("list ok", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data).to.be.an("array");
+  });
+}
+
+docs {
+  Katalog flat per denom, harga = reseller_price. Hanya denom aktif dari produk aktif yang
+  punya sell_price dan reseller_price. Akun harus reseller yang sudah di-verify admin
+  (kalau belum: 403 RESELLER_PENDING_APPROVAL; di-suspend: 403 RESELLER_SUSPENDED).
+
+  Response item: sku, product_name, denom_name, price, stock_status, input_fields.
+}

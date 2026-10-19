@@ -1,0 +1,41 @@
+meta {
+  name: 4 - Get Order (API Key)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/reseller/orders/{{ref_id}}
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  const CryptoJS = require("crypto-js");
+  const apiKey = bru.getEnvVar("api_key");
+  const apiSecret = bru.getEnvVar("api_secret");
+  if (!apiKey || !apiSecret) {
+    throw new Error("api_key / api_secret kosong: jalankan \"3 - API Keys / 1 - Create API Key\" dulu");
+  }
+  const method = req.getMethod().toUpperCase();
+  const requestUri = bru.interpolate(req.getUrl()).replace(/^https?:\/\/[^\/]+/, "");
+  const rawBody = req.getBody();
+  const body = rawBody ? (typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody)) : "";
+  const ts = String(Math.floor(Date.now() / 1000));
+  const bodyHash = CryptoJS.SHA256(body).toString(CryptoJS.enc.Hex);
+  const toSign = method + ":" + requestUri + ":" + bodyHash + ":" + ts;
+  req.setHeader("X-Api-Key", apiKey);
+  req.setHeader("X-Timestamp", ts);
+  req.setHeader("X-Signature", CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA512(toSign, apiSecret)));
+}
+
+script:post-response {
+  test("order found", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
+
+docs {
+  Status satu order lewat API key. ref_id berasal dari "3 - Create Order (API Key)".
+  Alamat yang ditandatangani: /api/v2/reseller/orders/<ref_id> (alamat penuh).
+}

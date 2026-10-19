@@ -1,0 +1,53 @@
+meta {
+  name: 2 - List Mutations (API Key)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/reseller/mutations?page=1&limit=10
+  body: none
+  auth: none
+}
+
+params:query {
+  page: 1
+  limit: 10
+  ~type: 
+}
+
+script:pre-request {
+  const CryptoJS = require("crypto-js");
+  const apiKey = bru.getEnvVar("api_key");
+  const apiSecret = bru.getEnvVar("api_secret");
+  if (!apiKey || !apiSecret) {
+    throw new Error("api_key / api_secret kosong: jalankan \"3 - API Keys / 1 - Create API Key\" dulu");
+  }
+  const method = req.getMethod().toUpperCase();
+  const fullUrl = bru.interpolate(req.getUrl());
+  const requestUri = fullUrl.replace(/^https?:\/\/[^\/]+/, "");
+  const rawBody = req.getBody();
+  const body = rawBody ? (typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody)) : "";
+  const ts = String(Math.floor(Date.now() / 1000));
+  const bodyHash = CryptoJS.SHA256(body).toString(CryptoJS.enc.Hex);
+  const toSign = method + ":" + requestUri + ":" + bodyHash + ":" + ts;
+  const signature = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA512(toSign, apiSecret));
+  req.setHeader("X-Api-Key", apiKey);
+  req.setHeader("X-Timestamp", ts);
+  req.setHeader("X-Signature", signature);
+}
+
+script:post-response {
+  test("list ok", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data).to.be.an("array");
+  });
+}
+
+docs {
+  Riwayat mutasi saldo sendiri lewat API key. Sama seperti "1 - List Products (API Key)":
+  signature dibuat otomatis dari api_key + api_secret, alamat yang ditandatangani adalah
+  alamat penuh termasuk /api/v2 dan query.
+  Error yang mungkin: 401 INVALID_API_KEY / INVALID_SIGNATURE / TIMESTAMP_EXPIRED,
+  403 RESELLER_PENDING_APPROVAL / RESELLER_SUSPENDED.
+}

@@ -1,0 +1,28 @@
+meta {
+  name: 2 - List API Keys
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/reseller/api-keys
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+script:post-response {
+  test("list ok", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data).to.be.an("array");
+  });
+}
+
+docs {
+  Daftar key milikmu, terbaru dulu, termasuk yang sudah dicabut (revoked_at terisi).
+  api_secret TIDAK pernah ditampilkan lagi di sini.
+  last_used_at menunjukkan kapan key terakhir dipakai (diperbarui paling sering 1x per menit).
+}

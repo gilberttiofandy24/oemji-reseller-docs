@@ -1,0 +1,42 @@
+meta {
+  name: 1 - List Payment Methods
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/reseller/payment-methods
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+script:post-response {
+  const body = res.getBody();
+  test("methods listed", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(body.data.methods).to.be.an("array");
+  });
+  if (res.getStatus() === 200 && body.data.methods.length > 0) {
+    bru.setEnvVar("payment_method_id", body.data.methods[0].id);
+  }
+}
+
+docs {
+  Metode pembayaran yang bisa dipakai untuk topup saldo (saat ini hanya Virtual Account bank), beserta biayanya
+  dan batas nominal.
+
+  Response:
+    limits.min_amount / limits.max_amount   batas nominal satu topup (200000 .. 10000000)
+    methods[]  id, name, bank_name, fee_flat, fee_percent
+
+  Biaya ditanggung kamu, ditambahkan di atas nominal:
+    biaya = fee_flat + nominal * fee_percent / 100   (dibulatkan ke atas ke rupiah penuh)
+    total yang harus kamu transfer = nominal + biaya
+  Saldo bertambah TEPAT sebesar nominal (bukan total).
+
+  Request ini menyimpan id metode pertama ke variabel {{payment_method_id}}.
+}

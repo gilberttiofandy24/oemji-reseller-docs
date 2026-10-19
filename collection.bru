@@ -1,0 +1,16 @@
+script:pre-request {
+  const CryptoJS = require("crypto-js");
+  const secret = bru.getEnvVar("signature_secret");
+  if (!secret) {
+    throw new Error("signature_secret kosong: pilih environment lalu isi signature_secret");
+  }
+  const ts = String(Math.floor(Date.now() / 1000));
+  req.setHeader("X-Timestamp", ts);
+  req.setHeader("X-Signature", CryptoJS.HmacSHA256(ts, secret).toString(CryptoJS.enc.Hex));
+}
+
+docs {
+  Sementara pakai pintu dashboard (JWT reseller + X-Timestamp/X-Signature, HMAC-SHA256
+  atas timestamp). Isi `signature_secret` di environment dengan APP_SERVER_SIGNATURE_SECRET.
+  Pintu API key (/reseller-api/*) menyusul setelah API key dibangun.
+}

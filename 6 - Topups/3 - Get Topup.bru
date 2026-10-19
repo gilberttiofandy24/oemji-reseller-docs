@@ -1,0 +1,30 @@
+meta {
+  name: 3 - Get Topup
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/reseller/topups/{{topup_ref_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+script:post-response {
+  test("topup found", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.status).to.be.oneOf(["PENDING", "PAID", "EXPIRED"]);
+  });
+}
+
+docs {
+  Status satu topup milikmu (ref_id dari "2 - Create Topup").
+    PENDING  menunggu pembayaran
+    PAID     sudah dibayar, saldo sudah bertambah (lihat juga mutation TOPUP)
+    EXPIRED  melewati expired_at tanpa dibayar (dihitung saat dibaca)
+  Topup milik reseller lain -> 404 TOPUP_NOT_FOUND.
+}

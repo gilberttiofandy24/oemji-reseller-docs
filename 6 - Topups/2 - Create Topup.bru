@@ -1,0 +1,56 @@
+meta {
+  name: 2 - Create Topup
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/reseller/topups
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "amount": 200000,
+    "payment_method_id": "{{payment_method_id}}",
+    "idempotency_key": "{{$randomUUID}}"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  test("topup created", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(body.data.va_number).to.be.a("string");
+  });
+  if (res.getStatus() === 200) {
+    bru.setEnvVar("topup_ref_id", body.data.ref_id);
+  }
+}
+
+docs {
+  Membuat topup saldo lewat dashboard (login JWT): kita membuat Virtual Account baru untuk nominal itu.
+
+  Body:
+    amount            nominal saldo yang mau ditambah, bilangan bulat, 200000 .. 10000000
+    payment_method_id dari "1 - List Payment Methods"
+    idempotency_key   WAJIB, 1-64 karakter (huruf, angka, - dan _). Satu key = satu topup.
+
+  Response: ref_id, status (PENDING), amount, fee_amount, total_amount, va_number, expired_at (1 jam).
+  Transfer TEPAT total_amount ke va_number sebelum expired_at. Setelah dibayar, saldo naik sebesar amount
+  dan muncul sebagai mutation TOPUP.
+
+  Aturan:
+    - Maksimal 3 topup PENDING yang belum kedaluwarsa (429 TOO_MANY_PENDING_TOPUPS).
+    - Key yang sama dikirim ulang -> 409 DUPLICATE_REQUEST dengan data.ref_id dan data.status (topup yang sudah ada).
+    - Kalau pembuatan VA gagal (502 PAYMENT_PROVIDER_UNAVAILABLE), aman dicoba lagi dengan key yang sama.
+    - Request ini memakai {{$randomUUID}} sehingga SETIAP kali dijalankan membuat topup BARU.
+
+  Error: 400 INVALID_TOPUP_AMOUNT, 400 INVALID_IDEMPOTENCY_KEY, 429 TOO_MANY_PENDING_TOPUPS,
+         502 PAYMENT_PROVIDER_UNAVAILABLE, 403 RESELLER_PENDING_APPROVAL / RESELLER_SUSPENDED.
+}

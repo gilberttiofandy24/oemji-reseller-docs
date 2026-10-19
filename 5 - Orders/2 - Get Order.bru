@@ -1,0 +1,28 @@
+meta {
+  name: 2 - Get Order
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/reseller/orders/{{ref_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+script:post-response {
+  test("order found", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.status).to.be.oneOf(["PENDING", "SUCCESS", "FAILED"]);
+  });
+}
+
+docs {
+  Status satu order milikmu berdasarkan ref_id (dari respons "1 - Create Order").
+  Order milik reseller lain atau ref_id yang tidak ada -> 404 ORDER_NOT_FOUND.
+  Kalau status masih PENDING, cek lagi beberapa saat kemudian.
+}

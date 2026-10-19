@@ -1,0 +1,21 @@
+meta {
+  name: 3 - Revoke API Key
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/reseller/api-keys/{{api_key_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Mencabut key. Setelah dicabut, request yang memakai key itu ditolak 401 INVALID_API_KEY.
+  Mencabut key yang tidak ada, milik akun lain, atau sudah dicabut -> 404 API_KEY_NOT_FOUND.
+  Isi {{api_key_id}} dari "1 - Create API Key" atau dari "2 - List API Keys".
+}

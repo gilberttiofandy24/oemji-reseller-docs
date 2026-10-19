@@ -1,0 +1,58 @@
+meta {
+  name: 1 - List Mutations
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/reseller/mutations?page=1&limit=10
+  body: none
+  auth: bearer
+}
+
+params:query {
+  page: 1
+  limit: 10
+  ~type: 
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+script:post-response {
+  test("list ok", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data).to.be.an("array");
+  });
+}
+
+docs {
+  Riwayat perubahan saldo milik sendiri, terbaru dulu. Setiap baris menjelaskan kemana uangmu
+  pergi.
+
+  Query: page, limit (maks 100), type (opsional): TOPUP | ORDER | REFUND | ADJUSTMENT.
+
+  Response item:
+    id, type, amount, balance_after, reference_type, reference_id, description, created_at
+
+  - amount bertanda: positif = saldo naik, negatif = saldo turun.
+  - balance_after = saldo kamu tepat setelah baris itu.
+  - reference_type / reference_id menunjuk sumbernya (order, topup, atau admin untuk koreksi
+    manual); bisa null.
+
+  Jenis:
+    TOPUP       saldo naik karena topup
+    ORDER       saldo turun karena order
+    REFUND      saldo kembali karena order yang dipastikan gagal (maks 1 kali per order)
+    ADJUSTMENT  koreksi manual oleh admin (bisa naik atau turun)
+
+  Contoh:
+    { "type": "ORDER", "amount": "-10500", "balance_after": "989500",
+      "reference_type": "order", "description": "Order OEMJI-... Mobile Legends 5 Diamonds" }
+
+  Akun harus reseller yang sudah di-approve admin. Error:
+    403 RESELLER_PENDING_APPROVAL   belum di-approve
+    403 RESELLER_SUSPENDED          akun di-suspend
+    403 NOT_A_RESELLER              akun bukan reseller
+}

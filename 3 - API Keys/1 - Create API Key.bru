@@ -1,0 +1,47 @@
+meta {
+  name: 1 - Create API Key
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/reseller/api-keys
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "Sistem toko utama"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  test("key created", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(body.data.api_key).to.be.a("string");
+    expect(body.data.api_secret).to.be.a("string");
+  });
+  bru.setEnvVar("api_key", body.data.api_key);
+  bru.setEnvVar("api_key_id", body.data.id);
+  bru.setEnvVar("api_secret", body.data.api_secret);
+}
+
+docs {
+  Membuat API key untuk sistem milikmu. Hanya lewat dashboard (login JWT), tidak bisa lewat API key.
+  Akun harus reseller yang sudah di-approve.
+
+  Response berisi:
+    api_key     identitas publik, dikirim di header X-Api-Key
+    api_secret  RAHASIA, dipakai untuk menghitung signature. DITAMPILKAN SEKALI SAJA.
+                Simpan sekarang. Kalau hilang, buat key baru dan cabut yang lama.
+
+  Request ini menyimpan api_key, api_key_id, dan api_secret ke environment Bruno.
+  api_secret tidak pernah dikirim ke server saat memanggil API; hanya dipakai untuk membuat
+  X-Signature (HMAC-SHA512).
+}
